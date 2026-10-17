@@ -1,11 +1,12 @@
+from pathlib import Path
 import typer
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
-# Importy względne wewnątrz pakietu aegis_sim
 from aegis_sim.core.models import DependencyEdge, Node, NodeCategory, NodeStatus
 from aegis_sim.analytics.graph_analyzer import TopologyGraphEngine
+from aegis_sim.exporters.mermaid import MermaidExporter
 
 app = typer.Typer(help="AEGIS-SIM: C5ISR Strategy & Predictive Scenario Simulator")
 console = Console()
@@ -79,6 +80,16 @@ def analyze() -> None:
         )
 
     console.print(table)
+
+
+@app.command(name="export")
+def export_diagram(output: Path = Path("docs/topology.md")) -> None:
+    """Eksportuje wygenerowany graf topologii C5ISR do pliku Markdown w formacie Mermaid.js."""
+    engine = create_sample_c5isr_topology()
+    exporter = MermaidExporter(engine)
+    
+    exporter.export_to_file(output)
+    console.print(f"[bold green]✔[/bold green] Graf topologii pomyślnie wyeksportowany do: [cyan]{output}[/cyan]")
 
 
 if __name__ == "__main__":
