@@ -7,6 +7,8 @@ from rich.panel import Panel
 from aegis_sim.core.models import DependencyEdge, Node, NodeCategory, NodeStatus
 from aegis_sim.analytics.graph_analyzer import TopologyGraphEngine
 from aegis_sim.exporters.mermaid import MermaidExporter
+from aegis_sim.core.models import SimulationEvent
+from aegis_sim.red_team.adversary import AdversarySimulator
 
 app = typer.Typer(help="AEGIS-SIM: C5ISR Strategy & Predictive Scenario Simulator")
 console = Console()
@@ -90,6 +92,48 @@ def export_diagram(output: Path = Path("docs/topology.md")) -> None:
     
     exporter.export_to_file(output)
     console.print(f"[bold green]✔[/bold green] Graf topologii pomyślnie wyeksportowany do: [cyan]{output}[/cyan]")
+
+@app.command(name="simulate")
+def simulate_attack(
+    target: str = typer.Option("SAT_LINK_01", help="ID węzła poddawanego atakowi"),
+    impact: float = typer.Option(0.8, help="Siła ataku (0.1 - 1.0)"),
+) -> None:
+    """Symuluje atak Red Team na wybrany węzeł i kalkuluje degradację kaskadową."""
+    console.print(
+        Panel.fit(
+            f"[bold red]⚔️ Red Team Attack Simulation[/bold red]\nTarget: [cyan]{target}[/cyan] | Impact Factor: [yellow]{impact * 100:.0f}%[/yellow]",
+            border_style="red",
+        )
+    )
+
+    base_engine = create_sample_c5isr_topology()
+    simulator = AdversarySimulator(base_engine)
+
+    event = SimulationEvent(
+        event_id="EVT_RED_01",
+        target_node_id=target,
+        impact_factor=impact,
+        description=f"Automated Red Team disruption on {target}",
+    )
+
+    history = simulator.inject_event(event)
+
+    table = Table(title="Cascade Degradation Report", header_style="bold magenta")
+    table.add_column("Node ID", style="cyan")
+    table.add_column("Initial Capacity", justify="right")
+    table.add_column("Post-Attack Capacity", justify="right")
+    table.add_column("Degradation Delta", justify="right", style="red")
+
+    for node_id, old_cap, new_cap in history:
+        delta = old_cap - new_cap
+        table.add_row(
+            node_id,
+            f"{old_cap:.1f}%",
+            f"{new_cap:.1f}%",
+            f"-{delta:.1f}%",
+        )
+
+    console.print(table)
 
 
 if __name__ == "__main__":
